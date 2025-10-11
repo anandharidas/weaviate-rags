@@ -1,0 +1,278 @@
+openapi: 3.0.3
+info:
+  title: RAG Flask App with FlagReranker API
+  description: A Flask API for document reranking using FlagReranker for Retrieval-Augmented Generation (RAG) systems
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:5001
+    description: Development server
+  - url: http://127.0.0.1:5001
+    description: Local development server
+
+paths:
+  /:
+    get:
+      summary: Get API information
+      description: Returns basic information about the API and available endpoints
+      operationId: getApiInfo
+      tags:
+        - General
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "RAG Flask App with FlagReranker"
+                  endpoints:
+                    type: object
+                    properties:
+                      "/rerank":
+                        type: string
+                        example: "POST - Rerank documents based on query relevance"
+                      "/health":
+                        type: string
+                        example: "GET - Health check"
+              example:
+                message: "RAG Flask App with FlagReranker"
+                endpoints:
+                  "/rerank": "POST - Rerank documents based on query relevance"
+                  "/health": "GET - Health check"
+
+  /health:
+    get:
+      summary: Health check
+      description: Returns the health status of the API and Python version
+      operationId: getHealth
+      tags:
+        - General
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  python_version:
+                    type: string
+                    example: "3.10"
+              example:
+                status: "healthy"
+                python_version: "3.10"
+
+  /rerank:
+    post:
+      summary: Rerank documents by relevance
+      description: Takes a query and a list of documents, then returns the documents ranked by their relevance to the query using FlagReranker
+      operationId: rerankDocuments
+      tags:
+        - Reranking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - query
+                - documents
+              properties:
+                query:
+                  type: string
+                  description: The search query to rank documents against
+                  example: "What is the capital of France?"
+                documents:
+                  type: array
+                  items:
+                    type: string
+                  description: List of documents to be ranked
+                  example: ["Paris", "London", "Berlin", "Madrid", "Rome"]
+                  minItems: 1
+            examples:
+              capital_cities:
+                summary: Capital cities example
+                value:
+                  query: "What is the capital of France?"
+                  documents: ["Paris", "London", "Berlin", "Madrid", "Rome"]
+              weather_locations:
+                summary: Weather locations example
+                value:
+                  query: "What is the warmest place in the world?"
+                  documents: ["Saudi Arabia", "India", "Arizona", "Brazil", "Australia"]
+              technical_docs:
+                summary: Technical documentation example
+                value:
+                  query: "How to implement machine learning models?"
+                  documents: [
+                    "Introduction to machine learning algorithms",
+                    "Deep learning with neural networks",
+                    "Data preprocessing techniques",
+                    "Model evaluation and validation",
+                    "Deployment strategies for ML models"
+                  ]
+      responses:
+        '200':
+          description: Documents successfully reranked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  query:
+                    type: string
+                    description: The original query
+                    example: "What is the capital of France?"
+                  total_documents:
+                    type: integer
+                    description: Total number of documents processed
+                    example: 5
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        document:
+                          type: string
+                          description: The document text
+                          example: "Paris"
+                        relevance_score:
+                          type: number
+                          format: float
+                          description: Relevance score (higher = more relevant)
+                          example: 10.31
+                        rank:
+                          type: integer
+                          description: Final rank after sorting (1 = most relevant)
+                          example: 1
+                      required:
+                        - document
+                        - relevance_score
+                        - rank
+              examples:
+                successful_rerank:
+                  summary: Successful reranking example
+                  value:
+                    query: "What is the capital of France?"
+                    total_documents: 5
+                    results:
+                      - document: "Paris"
+                        relevance_score: 10.31
+                        rank: 1
+                      - document: "Madrid"
+                        relevance_score: 9.64
+                        rank: 2
+                      - document: "London"
+                        relevance_score: 6.07
+                        rank: 3
+                      - document: "Berlin"
+                        relevance_score: 5.89
+                        rank: 4
+                      - document: "Rome"
+                        relevance_score: 4.12
+                        rank: 5
+        '400':
+          description: Bad request - missing required parameters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Query and documents are required"
+              example:
+                error: "Query and documents are required"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "An error occurred while processing the request"
+              example:
+                error: "An error occurred while processing the request"
+
+components:
+  schemas:
+    RerankRequest:
+      type: object
+      required:
+        - query
+        - documents
+      properties:
+        query:
+          type: string
+          description: The search query to rank documents against
+          example: "What is the capital of France?"
+        documents:
+          type: array
+          items:
+            type: string
+          description: List of documents to be ranked
+          example: ["Paris", "London", "Berlin", "Madrid"]
+          minItems: 1
+    
+    RerankResponse:
+      type: object
+      properties:
+        query:
+          type: string
+          description: The original query
+        total_documents:
+          type: integer
+          description: Total number of documents processed
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/RankedDocument'
+    
+    RankedDocument:
+      type: object
+      properties:
+        document:
+          type: string
+          description: The document text
+        relevance_score:
+          type: number
+          format: float
+          description: Relevance score (higher = more relevant)
+        rank:
+          type: integer
+          description: Final rank after sorting (1 = most relevant)
+      required:
+        - document
+        - relevance_score
+        - rank
+    
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+      required:
+        - error
+
+tags:
+  - name: General
+    description: General API endpoints
+  - name: Reranking
+    description: Document reranking operations
