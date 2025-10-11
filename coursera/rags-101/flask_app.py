@@ -1,6 +1,8 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
+from flask_cors import CORS
 import threading
 import json
+import os
 from FlagEmbedding import FlagReranker
 
 reranker = FlagReranker('BAAI/bge-reranker-base')
@@ -19,6 +21,7 @@ scores = reranker.compute_score([
 print(scores)
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
 @app.route('/')
 def home():
@@ -74,6 +77,12 @@ def rerank_documents():
 @app.route('/health')
 def health():
     return jsonify({"status": "healthy", "python_version": "3.10"})
+
+@app.route('/test')
+def test_interface():
+    """Serve the HTML test interface"""
+    test_file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'test_api.html')
+    return send_file(test_file_path)
 
 if __name__ == '__main__':
     print("Starting Flask app with FlagReranker...")
