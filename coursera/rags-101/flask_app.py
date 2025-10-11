@@ -1,48 +1,37 @@
 from flask import Flask, request, jsonify
 import threading
 import json
-import re
-from collections import Counter
+from FlagEmbedding import FlagReranker
 
-def simple_text_similarity(query, document):
-    """Simple text similarity based on word overlap"""
-    query_words = set(re.findall(r'\w+', query.lower()))
-    doc_words = set(re.findall(r'\w+', document.lower()))
-    
-    if not query_words or not doc_words:
-        return 0.0
-    
-    intersection = query_words.intersection(doc_words)
-    union = query_words.union(doc_words)
-    
-    return len(intersection) / len(union) if union else 0.0
+reranker = FlagReranker('BAAI/bge-reranker-base')
 
-# Example queries and documents
-queries = ["What is the capital of France?", "What is the warmest place in the world?"]
-documents = ["Paris", "London", "Berlin", "Madrid", "Saudi Arabia", "India", "Arizona"]
+scores = reranker.compute_score([
+    ["What is the capital of France?", "Paris"],
+    ["What is the capital of France?", "London"],
+    ["What is the capital of France?", "Berlin"],
+    ["What is the capital of France?", "Madrid"],
+    ["What is the warmest place in the world?", "Saudi Arabia"],
+    ["What is the warmest place in the world?", "London"],
+    ["What is the warmest place in the world?", "India"],
+    ["What is the warmest place in the world?", "Arizona"]
+])
 
-# Compute similarity scores
-print("Similarity scores:")
-for i, query in enumerate(queries):
-    print(f"\nQuery: {query}")
-    for j, doc in enumerate(documents):
-        score = simple_text_similarity(query, doc)
-        print(f"  {doc}: {score:.3f}")
+print(scores)
 
 app = Flask(__name__)
 
 @app.route('/')
 def home():
     return jsonify({
-        "message": "RAG Flask App with Text Similarity",
+        "message": "RAG Flask App with FlagReranker",
         "endpoints": {
-            "/similarity": "POST - Calculate similarity between query and documents",
+            "/rerank": "POST - Rerank documents based on query relevance",
             "/health": "GET - Health check"
         }
     })
 
-@app.route('/similarity', methods=['POST'])
-def calculate_similarity():
+@app.route('/rerank', methods=['POST'])
+def rerank_documents():
     try:
         data = request.get_json()
         query = data.get('query', '')
@@ -51,16 +40,31 @@ def calculate_similarity():
         if not query or not documents:
             return jsonify({"error": "Query and documents are required"}), 400
         
-        results = []
-        for doc in documents:
-            score = simple_text_similarity(query, doc)
-            results.append({"document": doc, "similarity_score": score})
+        # Create query-document pairs for reranking
+        pairs = [[query, doc] for doc in documents]
         
-        # Sort by similarity score (descending)
-        results.sort(key=lambda x: x['similarity_score'], reverse=True)
+        # Compute reranking scores
+        scores = reranker.compute_score(pairs)
+        
+        # Combine documents with their scores and sort by score (descending)
+        results = []
+        for i, (doc, score) in enumerate(zip(documents, scores)):
+            results.append({
+                "document": doc,
+                "relevance_score": float(score),
+                "rank": i + 1
+            })
+        
+        # Sort by relevance score (descending)
+        results.sort(key=lambda x: x['relevance_score'], reverse=True)
+        
+        # Update ranks after sorting
+        for i, result in enumerate(results):
+            result['rank'] = i + 1
         
         return jsonify({
             "query": query,
+            "total_documents": len(documents),
             "results": results
         })
     
@@ -69,9 +73,9 @@ def calculate_similarity():
 
 @app.route('/health')
 def health():
-    return jsonify({"status": "healthy"})
+    return jsonify({"status": "healthy", "python_version": "3.10"})
 
 if __name__ == '__main__':
-    print("Starting Flask app...")
-    print("Visit http://localhost:5000 for the API")
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    print("Starting Flask app with FlagReranker...")
+    print("Visit http://localhost:5001 for the API")
+    app.run(debug=True, host='0.0.0.0', port=5001)
