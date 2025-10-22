@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "signfx-metrics": {
+      "command": "python",
+      "args": ["/Users/anandharidas/python/weaviate-rags/mcp_signfx_tool.py"],
+      "env": {
+        "PYTHONPATH": "/Users/anandharidas/python/weaviate-rags"
+      }
+    }
+  }
+}
+
